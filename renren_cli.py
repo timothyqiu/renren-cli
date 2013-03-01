@@ -5,6 +5,7 @@
 
 import cookielib
 import os
+import re
 import json
 import urllib
 import urllib2
@@ -105,9 +106,21 @@ class RenrenClient:
         res = json.loads(self.post(self.URL_LOGIN, data))
         if res['code']:
             print 'Login success'
-            print 'Redirect to ' + res['homeUrl']
-            self.get(res['homeUrl'])
+
+            # For ajax, it seems that we always need requestToken and _rtk,
+            # which comes from the global XN.get_check and XN.get_check_x. These
+            # values can be found in source code of each page (probably).
+            html = self.get(res['homeUrl'])
+            checkMatch = re.search(r'get_check:\'(.*?)\'', html)
+            checkXMatch = re.search(r'get_check_x:\'(.*?)\'', html)
+            if checkMatch and checkXMatch:
+                self.get_check = checkMatch.group(0)
+                self.get_check_x = checkXMatch.group(0)
+                print self.get_check, self.get_check_x
+            else:
+                print 'Get token failed'
         else:
+            print 'Login failed'
             print res['failDescription']
 
 
