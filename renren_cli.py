@@ -3,6 +3,7 @@
 #
 # Reference: http://s.xnimg.cn/a52197/n/apps/login/login-v6.js
 
+import cookielib
 import os
 import json
 import urllib
@@ -49,9 +50,7 @@ class RenrenClient:
 
     URL_CAPTCHA = \
         'http://icode.renren.com/getcode.do?t=web_login&rnd=Math.random()'
-
     URL_SHOW_CAPTCHA = 'http://www.renren.com/ajax/ShowCaptcha'
-
     URL_LOGIN = 'http://www.renren.com/ajaxLogin/login?1=1'
 
     def __init__(self, email, password):
@@ -60,6 +59,11 @@ class RenrenClient:
         self.encryptor = LoginEncryptor()
         self.encryptor.getKeys()
 
+        self.cookiejar = cookielib.CookieJar()
+        self.opener = urllib2.build_opener(
+            urllib2.HTTPCookieProcessor(self.cookiejar)
+        )
+
     def post(self, url, data):
         body = '&'.join([
             urllib.quote(key) + '=' + urllib.quote(data[key])
@@ -67,12 +71,12 @@ class RenrenClient:
         ])
 
         request = urllib2.Request(url, body)
-        response = urllib2.urlopen(request)
+        response = self.opener.open(request)
         return response.read()
 
     def get(self, url):
         request = urllib2.Request(url)
-        response = urllib2.urlopen(request)
+        response = self.opener.open(request)
         return response.read()
 
     def getICode(self):
@@ -101,6 +105,8 @@ class RenrenClient:
         res = json.loads(self.post(self.URL_LOGIN, data))
         if res['code']:
             print 'Login success'
+            print 'Redirect to ' + res['homeUrl']
+            self.get(res['homeUrl'])
         else:
             print res['failDescription']
 
