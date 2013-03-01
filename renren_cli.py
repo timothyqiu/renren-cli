@@ -88,7 +88,7 @@ class RenrenClient:
     def getCaptcha(self):
         captcha = self.get(self.URL_CAPTCHA)
         with open('captcha.jpg', 'wb') as image:
-            imagg.write(captcha)
+            image.write(captcha)
         return raw_input('Captcha: ')
 
     def login(self):
