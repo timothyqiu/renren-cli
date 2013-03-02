@@ -104,17 +104,51 @@ class RenrenClient:
     URL_NOTIFICATION = \
         'http://notify.renren.com/rmessage/get?getbybigtype=1&bigtype=1&view=16'
 
+    FILENAME_COOKIES = '.renren.cookies'
+
     def __init__(self, email, password):
         self.email = email
         self.password = password
         self.encryptor = LoginEncryptor()
 
-        self.cookiejar = cookielib.CookieJar()
+        self.cookiejar = cookielib.LWPCookieJar()
         self.opener = urllib2.build_opener(
             urllib2.HTTPCookieProcessor(self.cookiejar)
         )
 
         self.token = {}
+
+        # automatic login
+        if os.path.exists(self.FILENAME_COOKIES):
+            self.loadCookies()
+            self.getToken()
+        else:
+            self.login()
+
+    def saveCookies(self, filename=None):
+        if not filename:
+            filename = self.FILENAME_COOKIES
+        self.cookiejar.save(filename, ignore_discard=True)
+
+    def loadCookies(self, filename=None):
+        if not filename:
+            filename = self.FILENAME_COOKIES
+        self.cookiejar.revert(filename, ignore_discard=True)
+
+    def getToken(self, html=None):
+        # For ajax, it seems that we always need requestToken and _rtk,
+        # which comes from the global XN.get_check and XN.get_check_x.
+        # These values can be found in source code of each page (probably).
+        if not html:
+            html = self.get('http://www.renren.com/siteinfo/about')
+        checkMatch = re.search(r'get_check:\'(.*?)\'', html)
+        checkXMatch = re.search(r'get_check_x:\'(.*?)\'', html)
+        if checkMatch and checkXMatch:
+            self.token['requestToken'] = checkMatch.group(1)
+            self.token['_rtk'] = checkXMatch.group(1)
+            logging.info('Got token')
+        else:
+            logging.warn('Get token failed')
 
     def post(self, url, data):
         body = urllib.urlencode(data)
@@ -164,17 +198,9 @@ class RenrenClient:
         if res['code']:
             print 'Login success'
 
-            # For ajax, it seems that we always need requestToken and _rtk,
-            # which comes from the global XN.get_check and XN.get_check_x.
-            # These values can be found in source code of each page (probably).
             html = self.get(res['homeUrl'])
-            checkMatch = re.search(r'get_check:\'(.*?)\'', html)
-            checkXMatch = re.search(r'get_check_x:\'(.*?)\'', html)
-            if checkMatch and checkXMatch:
-                self.token['requestToken'] = checkMatch.group(1)
-                self.token['_rtk'] = checkXMatch.group(1)
-            else:
-                print 'Get token failed'
+            self.getToken(html)
+            self.saveCookies()
         else:
             print 'Login failed'
             print res['failDescription']
@@ -222,7 +248,6 @@ if __name__ == '__main__':
     password = config['password']
 
     client = RenrenClient(email, password)
-    client.login()
 
     ntfs = client.getNotifications()
     for n in ntfs:
