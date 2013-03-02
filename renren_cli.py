@@ -73,6 +73,28 @@ class LoginEncryptor:
         return ' '.join(h)
 
 
+class RenrenNotification:
+
+    def __init__(self, data):
+        self.parseJSON(data)
+
+    def parseJSON(self, ntf):
+        timestamp = float(ntf['time'])
+        content = ntf['content']
+
+        self.id = ntf['nid']
+        self.unread = int(ntf['unread']) > 0
+        self.time = datetime.fromtimestamp(timestamp)
+        self.removeCallback = ntf['rmessagecallback']
+        self.processCallback = ntf['processcallback']
+
+        links = re.findall(r'<a.*?href="https?://(.*?)\..*?".*?>(.*?)</a>', content)
+
+        self.nickname = links[0][1]
+        self.type = links[1][0]
+        self.description = links[1][1]
+
+
 class RenrenClient:
 
     URL_CAPTCHA = \
@@ -91,6 +113,8 @@ class RenrenClient:
         self.opener = urllib2.build_opener(
             urllib2.HTTPCookieProcessor(self.cookiejar)
         )
+
+        self.token = {}
 
     def post(self, url, data):
         body = urllib.urlencode(data)
@@ -147,8 +171,8 @@ class RenrenClient:
             checkMatch = re.search(r'get_check:\'(.*?)\'', html)
             checkXMatch = re.search(r'get_check_x:\'(.*?)\'', html)
             if checkMatch and checkXMatch:
-                self.get_check = checkMatch.group(1)
-                self.get_check_x = checkXMatch.group(1)
+                self.token['requestToken'] = checkMatch.group(1)
+                self.token['_rtk'] = checkXMatch.group(1)
             else:
                 print 'Get token failed'
         else:
@@ -164,29 +188,18 @@ class RenrenClient:
         logging.info('Comment notification count: %d' % len(res))
         result = []
         for ntf in res:
-            result.append(parseCommentNotification(ntf))
+            result.append(RenrenNotification(ntf))
         return result
 
+    def removeNotification(self, nid):
+        res = self.post('http://notify.renren.com/rmessage/remove?nl=' + nid,
+                        self.token)
+        print res
 
-def parseCommentNotification(ntf):
-    timestamp = float(ntf['time'])
-    content = ntf['content']
-
-    notification = {
-        'id': ntf['nid'],
-        'unread': int(ntf['unread']) > 0,
-        'time': datetime.fromtimestamp(timestamp),
-        'removeCallback': ntf['rmessagecallback'],
-        'processCallback': ntf['processcallback'],
-    }
-
-    links = re.findall(r'<a.*?href="https?://(.*?)\..*?".*?>(.*?)</a>', content)
-
-    notification['nickname'] = links[0][1]
-    notification['type'] = links[1][0]
-    notification['description'] = links[1][1]
-
-    return notification
+    def processNotification(self, nid):
+        res = self.post('http://notify.renren.com/rmessage/process?nl=' + nid,
+                        self.token)
+        print res
 
 
 if __name__ == '__main__':
@@ -206,5 +219,13 @@ if __name__ == '__main__':
 
     notifications = client.getCommentNotifications()
     for n in notifications:
-        print '%s %s %s %-8s %s\t%s' % \
-        (n['id'], n['time'], n['unread'], n['type'], n['nickname'], n['description'])
+        print u'%s %s %s %-8s %s\t%s' % \
+        (n.id, n.time, n.unread, n.type, n.nickname, n.description)
+
+    nid = raw_input('Remove which: ')
+    if nid:
+        client.removeNotification(nid)
+
+    nid = raw_input('Process which: ')
+    if nid:
+        client.processNotification(nid)
