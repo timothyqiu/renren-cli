@@ -3,9 +3,11 @@
 #
 # Reference: http://s.xnimg.cn/a52197/n/apps/login/login-v6.js
 
+from datetime import datetime
 import cookielib
 import os
 import re
+import logging
 import json
 import urllib
 import urllib2
@@ -15,9 +17,33 @@ class LoginEncryptor:
 
     URL_GET_ENCRYPT_KEY = 'http://login.renren.com/ajax/getEncryptKey'
 
-    def getKeys(self):
+    CACHE_FILENAME = '.renren.login.encryptor.cache'
+
+    def __init__(self):
+        if os.path.exists(self.CACHE_FILENAME):
+            self.loadKeys()
+        else:
+            self.retrieveKeys()
+
+    def saveKeys(self, keys):
+        with open(self.CACHE_FILENAME, 'wb') as f:
+            json.dump(keys, f)
+
+    def loadKeys(self):
+        if os.path.exists(self.CACHE_FILENAME):
+            with open(self.CACHE_FILENAME, 'rb') as f:
+                keys = json.load(f)
+            self.update(keys)
+        else:
+            logging.warn('%s does not exist.' % self.CACHE_FILENAME)
+
+    def retrieveKeys(self):
         response = urllib2.urlopen(self.URL_GET_ENCRYPT_KEY)
         res = json.loads(response.read())
+        self.update(res)
+        self.saveKeys(res)
+
+    def update(self, res):
         self.rkey = res['rkey']
         self.e = int(res['e'], 16)
         self.n = int(res['n'], 16)
@@ -53,12 +79,13 @@ class RenrenClient:
         'http://icode.renren.com/getcode.do?t=web_login&rnd=Math.random()'
     URL_SHOW_CAPTCHA = 'http://www.renren.com/ajax/ShowCaptcha'
     URL_LOGIN = 'http://www.renren.com/ajaxLogin/login?1=1'
+    URL_NOTIFICATION = \
+        'http://notify.renren.com/rmessage/get?getbybigtype=1&bigtype=1&view=16'
 
     def __init__(self, email, password):
         self.email = email
         self.password = password
         self.encryptor = LoginEncryptor()
-        self.encryptor.getKeys()
 
         self.cookiejar = cookielib.CookieJar()
         self.opener = urllib2.build_opener(
@@ -67,6 +94,9 @@ class RenrenClient:
 
     def post(self, url, data):
         body = urllib.urlencode(data)
+
+        logging.info('POST %s' % url)
+
         request = urllib2.Request(url, body)
         response = self.opener.open(request)
         return response.read()
@@ -77,7 +107,7 @@ class RenrenClient:
             seperator = '&' if '?' in url else '?'
             url += seperator + body
 
-        print 'GET %s' % url
+        logging.info('GET %s' % url)
 
         request = urllib2.Request(url)
         response = self.opener.open(request)
@@ -111,15 +141,14 @@ class RenrenClient:
             print 'Login success'
 
             # For ajax, it seems that we always need requestToken and _rtk,
-            # which comes from the global XN.get_check and XN.get_check_x. These
-            # values can be found in source code of each page (probably).
+            # which comes from the global XN.get_check and XN.get_check_x.
+            # These values can be found in source code of each page (probably).
             html = self.get(res['homeUrl'])
             checkMatch = re.search(r'get_check:\'(.*?)\'', html)
             checkXMatch = re.search(r'get_check_x:\'(.*?)\'', html)
             if checkMatch and checkXMatch:
                 self.get_check = checkMatch.group(1)
                 self.get_check_x = checkXMatch.group(1)
-                print self.get_check, self.get_check_x
             else:
                 print 'Get token failed'
         else:
@@ -131,13 +160,40 @@ class RenrenClient:
             'begin': start,
             'limit': limit,
         }
-        url = 'http://notify.renren.com/rmessage/get?getbybigtype=1&bigtype=1&view=16'
-        res = json.loads(self.get(url, data))
-        print len(res)
+        res = json.loads(self.get(self.URL_NOTIFICATION, data))
+        logging.info('Comment notification count: %d' % len(res))
+        result = []
+        for ntf in res:
+            result.append(parseCommentNotification(ntf))
+        return result
+
+
+def parseCommentNotification(ntf):
+    timestamp = float(ntf['time'])
+    content = ntf['content']
+
+    notification = {
+        'id': ntf['nid'],
+        'unread': int(ntf['unread']) > 0,
+        'time': datetime.fromtimestamp(timestamp),
+        'removeCallback': ntf['rmessagecallback'],
+        'processCallback': ntf['processcallback'],
+    }
+
+    links = re.findall(r'<a.*?href="https?://(.*?)\..*?".*?>(.*?)</a>', content)
+
+    notification['nickname'] = links[0][1]
+    notification['type'] = links[1][0]
+    notification['description'] = links[1][1]
+
+    return notification
 
 
 if __name__ == '__main__':
     os.chdir(os.path.dirname(__file__) or '.')
+
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)-8s %(message)s')
 
     with open('config.json', 'rb') as f:
         config = json.load(f)
@@ -147,6 +203,8 @@ if __name__ == '__main__':
 
     client = RenrenClient(email, password)
     client.login()
-    client.getCommentNotifications()
-    client.getCommentNotifications(20)
-    client.getCommentNotifications(40)
+
+    notifications = client.getCommentNotifications()
+    for n in notifications:
+        print '%s %s %s %-8s %s\t%s' % \
+        (n['id'], n['time'], n['unread'], n['type'], n['nickname'], n['description'])
