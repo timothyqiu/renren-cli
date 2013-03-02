@@ -75,7 +75,18 @@ class RenrenClient:
         response = self.opener.open(request)
         return response.read()
 
-    def get(self, url):
+    def get(self, url, data={}):
+        body = '&'.join([
+            urllib.quote(key) + '=' + urllib.quote(str(data[key]))
+            for key in data
+        ])
+
+        if body:
+            seperator = '&' if '?' in url else '?'
+            url += seperator + body
+
+        print 'GET %s' % url
+
         request = urllib2.Request(url)
         response = self.opener.open(request)
         return response.read()
@@ -123,6 +134,15 @@ class RenrenClient:
             print 'Login failed'
             print res['failDescription']
 
+    def getCommentNotifications(self, start=0, limit=20):
+        data = {
+            'begin': start,
+            'limit': limit,
+        }
+        url = 'http://notify.renren.com/rmessage/get?getbybigtype=1&bigtype=1&view=16'
+        res = json.loads(self.get(url, data))
+        print len(res)
+
 
 if __name__ == '__main__':
     os.chdir(os.path.dirname(__file__) or '.')
@@ -135,3 +155,6 @@ if __name__ == '__main__':
 
     client = RenrenClient(email, password)
     client.login()
+    client.getCommentNotifications()
+    client.getCommentNotifications(20)
+    client.getCommentNotifications(40)
