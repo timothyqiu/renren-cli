@@ -117,8 +117,8 @@ class RenrenClient:
             checkMatch = re.search(r'get_check:\'(.*?)\'', html)
             checkXMatch = re.search(r'get_check_x:\'(.*?)\'', html)
             if checkMatch and checkXMatch:
-                self.get_check = checkMatch.group(0)
-                self.get_check_x = checkXMatch.group(0)
+                self.get_check = checkMatch.group(1)
+                self.get_check_x = checkXMatch.group(1)
                 print self.get_check, self.get_check_x
             else:
                 print 'Get token failed'
