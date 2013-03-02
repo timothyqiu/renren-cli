@@ -66,21 +66,13 @@ class RenrenClient:
         )
 
     def post(self, url, data):
-        body = '&'.join([
-            urllib.quote(key) + '=' + urllib.quote(data[key])
-            for key in data
-        ])
-
+        body = urllib.urlencode(data)
         request = urllib2.Request(url, body)
         response = self.opener.open(request)
         return response.read()
 
     def get(self, url, data={}):
-        body = '&'.join([
-            urllib.quote(key) + '=' + urllib.quote(str(data[key]))
-            for key in data
-        ])
-
+        body = urllib.urlencode(data)
         if body:
             seperator = '&' if '?' in url else '?'
             url += seperator + body
