@@ -179,17 +179,16 @@ class RenrenClient:
             print 'Login failed'
             print res['failDescription']
 
-    def getCommentNotifications(self, start=0, limit=20):
+    def getNotifications(self, start=0, limit=20):
         data = {
             'begin': start,
             'limit': limit,
         }
         res = json.loads(self.get(self.URL_NOTIFICATION, data))
-        logging.info('Comment notification count: %d' % len(res))
-        result = []
+        ntfs = []
         for ntf in res:
-            result.append(RenrenNotification(ntf))
-        return result
+            ntfs.append(RenrenNotification(ntf))
+        return ntfs
 
     def removeNotification(self, nid):
         res = self.post('http://notify.renren.com/rmessage/remove?nl=' + nid,
@@ -200,6 +199,14 @@ class RenrenClient:
         res = self.post('http://notify.renren.com/rmessage/process?nl=' + nid,
                         self.token)
         print res
+
+
+def formatNotification(ntf):
+    unread = '*' if n.unread else ' '
+    desc = n.description if n.type == 'status' else ' '
+    return u'{:11} {:1} {:6} {:10} {}'.format(
+        n.id, unread, n.type, n.nickname, desc
+    )
 
 
 if __name__ == '__main__':
@@ -217,10 +224,9 @@ if __name__ == '__main__':
     client = RenrenClient(email, password)
     client.login()
 
-    notifications = client.getCommentNotifications()
-    for n in notifications:
-        print u'%s %s %s %-8s %s\t%s' % \
-        (n.id, n.time, n.unread, n.type, n.nickname, n.description)
+    ntfs = client.getNotifications()
+    for n in ntfs:
+        print formatNotification(n)
 
     nid = raw_input('Remove which: ')
     if nid:
