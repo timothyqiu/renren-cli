@@ -16,20 +16,18 @@ from renren_encryptor import LoginEncryptor
 class RenrenNotification:
 
     def __init__(self, data):
-        self.parse_json(data)
+        self.parse(data)
 
-    def parse_json(self, ntf):
+    def parse(self, ntf):
         timestamp = float(ntf['time'])
         content = ntf['content']
+        links = re.findall(r'<a.*?href="https?://(.*?)\..*?".*?>(.*?)</a>', content)
 
         self.id = ntf['nid']
         self.unread = int(ntf['unread']) > 0
         self.time = datetime.fromtimestamp(timestamp)
         self.removeCallback = ntf['rmessagecallback']
         self.processCallback = ntf['processcallback']
-
-        links = re.findall(r'<a.*?href="https?://(.*?)\..*?".*?>(.*?)</a>', content)
-
         self.nickname = links[0][1]
         self.type = links[1][0]
         self.description = links[1][1]
@@ -86,11 +84,11 @@ class RenrenClient:
         if not url:
             url = self.DEFAULT_TOKEN_URL
         html = self.get(url)
-        checkMatch = re.search(r'get_check:\'(.*?)\'', html)
-        checkXMatch = re.search(r'get_check_x:\'(.*?)\'', html)
-        if checkMatch and checkXMatch:
-            self.token['requestToken'] = checkMatch.group(1)
-            self.token['_rtk'] = checkXMatch.group(1)
+        check_match = re.search(r'get_check:\'(.*?)\'', html)
+        check_x_match = re.search(r'get_check_x:\'(.*?)\'', html)
+        if check_match and check_x_match:
+            self.token['requestToken'] = check_match.group(1)
+            self.token['_rtk'] = check_x_match.group(1)
             logging.info('Token got from %s' % url)
         else:
             logging.warn('Token not found in %s' % url)
@@ -129,7 +127,7 @@ class RenrenClient:
         return raw_input('Captcha: ')
 
     def login(self):
-        data = {
+        query = {
             'email': self.email,
             'password': self.encryptor.encrypt(self.password),
             'rkey': self.encryptor.key['rkey'],
@@ -139,7 +137,7 @@ class RenrenClient:
             'captcha_type': 'web_login',
             'domain': 'renren.com'
         }
-        res = json.loads(self.post(self.URL_LOGIN, data))
+        res = json.loads(self.post(self.URL_LOGIN, query))
         if res['code']:
             logging.info('Login success.')
             self.retrieve_token(res['homeUrl'])
@@ -149,15 +147,12 @@ class RenrenClient:
             return False
 
     def get_notifications(self, start=0, limit=20):
-        data = {
+        query = {
             'begin': start,
             'limit': limit,
         }
-        res = json.loads(self.get(self.URL_NOTIFICATION, data))
-        ntfs = []
-        for ntf in res:
-            ntfs.append(RenrenNotification(ntf))
-        return ntfs
+        res = json.loads(self.get(self.URL_NOTIFICATION, query))
+        return [RenrenNotification(ntf) for ntf in res]
 
     def remove_notification(self, nid):
         self.post('http://notify.renren.com/rmessage/remove?nl=' + nid,
@@ -168,14 +163,14 @@ class RenrenClient:
                   self.token)
 
     def retrieve_status_comments(self, status, me):
-        data = {
+        query = {
             'owner': me,        # current account id
             'source': status,   # comment id
             't': 3,             # type: status
         }
-        data = dict(data.items() + self.token.items())
+        query = dict(query.items() + self.token.items())
         res = self.post('http://status.renren.com/feedcommentretrieve.do',
-                        data)
+                        query)
         print json.loads(res)
 
 
