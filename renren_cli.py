@@ -44,7 +44,8 @@ class RenrenClient:
     URL_NOTIFICATION = \
         'http://notify.renren.com/rmessage/get?getbybigtype=1&bigtype=1&view=16'
 
-    FILENAME_COOKIES = '.renren.cookies'
+    DEFAULT_COOKIES_FILENAME = '.renren.cookies'
+    DEFAULT_TOKEN_URL = 'http://www.renren.com/siteinfo/about'
 
     def __init__(self, email, password):
         self.email = email
@@ -59,65 +60,69 @@ class RenrenClient:
         self.token = {}
 
         # automatic login
-        if os.path.exists(self.FILENAME_COOKIES):
-            self.loadCookies()
-            self.getToken()
+        if os.path.exists(self.DEFAULT_COOKIES_FILENAME):
+            self.load_cookies()
+            self.retrieve_token()
         else:
-            self.login()
+            if self.login():
+                self.save_cookies();
 
-    def saveCookies(self, filename=None):
+    def save_cookies(self, filename=None):
         if not filename:
-            filename = self.FILENAME_COOKIES
+            filename = self.DEFAULT_COOKIES_FILENAME
         self.cookiejar.save(filename, ignore_discard=True)
+        logging.info('Cookies saved to %s' % filename)
 
-    def loadCookies(self, filename=None):
+    def load_cookies(self, filename=None):
         if not filename:
-            filename = self.FILENAME_COOKIES
+            filename = self.DEFAULT_COOKIES_FILENAME
         self.cookiejar.revert(filename, ignore_discard=True)
+        logging.info('Cookies loaded from %s' % filename)
 
-    def getToken(self, html=None):
+    def retrieve_token(self, url=None):
         # For ajax, it seems that we always need requestToken and _rtk,
         # which comes from the global XN.get_check and XN.get_check_x.
         # These values can be found in source code of each page (probably).
-        if not html:
-            html = self.get('http://www.renren.com/siteinfo/about')
+        if not url:
+            url = self.DEFAULT_TOKEN_URL
+        html = self.get(url)
         checkMatch = re.search(r'get_check:\'(.*?)\'', html)
         checkXMatch = re.search(r'get_check_x:\'(.*?)\'', html)
         if checkMatch and checkXMatch:
             self.token['requestToken'] = checkMatch.group(1)
             self.token['_rtk'] = checkXMatch.group(1)
-            logging.info('Got token')
+            logging.info('Token got from %s' % url)
         else:
-            logging.warn('Get token failed')
+            logging.warn('Token not found in %s' % url)
 
-    def post(self, url, data):
-        body = urllib.urlencode(data)
+    def post(self, url, query={}):
+        data = urllib.urlencode(query)
 
-        logging.info('POST %s' % url)
+        logging.debug('POST %s' % url)
 
-        request = urllib2.Request(url, body)
+        request = urllib2.Request(url, data)
         response = self.opener.open(request)
         return response.read()
 
-    def get(self, url, data={}):
-        body = urllib.urlencode(data)
-        if body:
+    def get(self, url, query={}):
+        data = urllib.urlencode(query)
+        if data:
             seperator = '&' if '?' in url else '?'
-            url += seperator + body
+            url += seperator + data
 
-        logging.info('GET %s' % url)
+        logging.debug('GET %s' % url)
 
         request = urllib2.Request(url)
         response = self.opener.open(request)
         return response.read()
 
-    def getICode(self):
+    def get_icode(self):
         show = self.post(self.URL_SHOW_CAPTCHA, {'email': self.email})
         if show == '0':
             return ''
-        return getCaptcha()
+        return self.get_captcha()
 
-    def getCaptcha(self):
+    def get_captcha(self):
         captcha = self.get(self.URL_CAPTCHA)
         with open('captcha.jpg', 'wb') as image:
             image.write(captcha)
@@ -128,7 +133,7 @@ class RenrenClient:
             'email': self.email,
             'password': self.encryptor.encrypt(self.password),
             'rkey': self.encryptor.key['rkey'],
-            'icode': self.getICode(),
+            'icode': self.get_icode(),
             'origURL': 'http://www.renren.com/home',
             'key_id': '1',
             'captcha_type': 'web_login',
@@ -136,16 +141,14 @@ class RenrenClient:
         }
         res = json.loads(self.post(self.URL_LOGIN, data))
         if res['code']:
-            print 'Login success'
-
-            html = self.get(res['homeUrl'])
-            self.getToken(html)
-            self.saveCookies()
+            logging.info('Login success.')
+            self.retrieve_token(res['homeUrl'])
+            return True
         else:
-            print 'Login failed'
-            print res['failDescription']
+            logging.error('Login failed: %s', res['failDescription'])
+            return False
 
-    def getNotifications(self, start=0, limit=20):
+    def get_notifications(self, start=0, limit=20):
         data = {
             'begin': start,
             'limit': limit,
@@ -156,17 +159,15 @@ class RenrenClient:
             ntfs.append(RenrenNotification(ntf))
         return ntfs
 
-    def removeNotification(self, nid):
-        res = self.post('http://notify.renren.com/rmessage/remove?nl=' + nid,
-                        self.token)
-        print res
+    def remove_notification(self, nid):
+        self.post('http://notify.renren.com/rmessage/remove?nl=' + nid,
+                  self.token)
 
-    def processNotification(self, nid):
-        res = self.post('http://notify.renren.com/rmessage/process?nl=' + nid,
-                        self.token)
-        print res
+    def process_notification(self, nid):
+        self.post('http://notify.renren.com/rmessage/process?nl=' + nid,
+                  self.token)
 
-    def retrieveStatusComments(self, status, me):
+    def retrieve_status_comments(self, status, me):
         data = {
             'owner': me,        # current account id
             'source': status,   # comment id
@@ -178,7 +179,7 @@ class RenrenClient:
         print json.loads(res)
 
 
-def formatNotification(ntf):
+def format_notification(ntf):
     unread = '*' if n.unread else ' '
     desc = n.description if n.type == 'status' else ' '
     return u'{:11} {:1} {:6} {:10} {}'.format(
@@ -189,7 +190,7 @@ def formatNotification(ntf):
 if __name__ == '__main__':
     os.chdir(os.path.dirname(__file__) or '.')
 
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s %(message)s')
 
     with open('config.json', 'rb') as f:
@@ -200,14 +201,14 @@ if __name__ == '__main__':
 
     client = RenrenClient(email, password)
 
-    ntfs = client.getNotifications()
+    ntfs = client.get_notifications()
     for n in ntfs:
-        print formatNotification(n)
+        print format_notification(n)
 
     nid = raw_input('Remove which: ')
     if nid:
-        client.removeNotification(nid)
+        client.remove_notification(nid)
 
     nid = raw_input('Process which: ')
     if nid:
-        client.processNotification(nid)
+        client.process_notification(nid)

@@ -30,7 +30,7 @@ class LoginEncryptor:
         1. Local file.
         2. Retrieve the key from web.
 
-        If got from web, the key will be automatic saved to file."""
+        If got from web, the key will be automatic saved."""
         if os.path.exists(self.DEFAULT_KEY_FILENAME):
             self.load_key()
         else:
@@ -83,8 +83,8 @@ class LoginEncryptor:
         for chunk in chunks:
             # make c integer form of a
             msg = sum(chunk[i] << (i*8) for i in range(chunk_size))
-
             cipher.append('%x' % pow(msg, e, n))
+
         return ' '.join(cipher)
 
 
