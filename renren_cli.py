@@ -32,13 +32,19 @@ class RenrenNotification:
         self.type = links[1][0]
         self.description = links[1][1]
 
+        if self.type == 'status':
+            m = re.search(r'http://status.renren.com/getdoing.do\?id=(\d+)&doingId=(\d+)', content)
+            assert m, content
+            self.owner_id = m.group(1)
+            self.status_id = m.group(2)
+
 
 class RenrenClient:
 
     URL_CAPTCHA = \
         'http://icode.renren.com/getcode.do?t=web_login&rnd=Math.random()'
     URL_SHOW_CAPTCHA = 'http://www.renren.com/ajax/ShowCaptcha'
-    URL_LOGIN = 'http://www.renren.com/ajaxLogin/login?1=1'
+    URL_LOGIN = 'http://www.renren.com/ajaxLogin/login'
     URL_NOTIFICATION = \
         'http://notify.renren.com/rmessage/get?getbybigtype=1&bigtype=1&view=16'
 
@@ -63,7 +69,7 @@ class RenrenClient:
             self.retrieve_token()
         else:
             if self.login():
-                self.save_cookies();
+                self.save_cookies()
 
     def save_cookies(self, filename=None):
         if not filename:
@@ -132,10 +138,7 @@ class RenrenClient:
             'password': self.encryptor.encrypt(self.password),
             'rkey': self.encryptor.key['rkey'],
             'icode': self.get_icode(),
-            'origURL': 'http://www.renren.com/home',
-            'key_id': '1',
             'captcha_type': 'web_login',
-            'domain': 'renren.com'
         }
         res = json.loads(self.post(self.URL_LOGIN, query))
         if res['code']:
@@ -162,21 +165,63 @@ class RenrenClient:
         self.post('http://notify.renren.com/rmessage/process?nl=' + nid,
                   self.token)
 
-    def retrieve_status_comments(self, status, me):
+    def retrieve_status(self, owner, page=0):
+        res = self.get('http://status.renren.com/GetSomeomeDoingList.do',
+                       {'userId': owner, 'curpage': page})
+
+        res = json.loads(res)
+
+        # parse
+        status = {
+            'owner': {'id': res['guest'], 'name': res['name']},
+            'total': int(res['count']),
+            'count': len(res['doingArray']),
+            'status': [
+                {
+                    'content': doing['content'],
+                    'comment_count': int(doing['comment_count']),
+                    'time': doing['dtime']
+                }
+                for doing in res['doingArray']
+            ]
+        }
+
+        # print
+        print u'Status of {} (count:{:d} total:{:d})'.format(
+            status['owner']['name'], status['count'], status['total']
+        )
+        for s in status['status']:
+            print u'{} ({:2d}) {}'.format(
+                s['time'], s['comment_count'],
+                re.sub(r'<.*?>', '', s['content'])
+            )
+
+    def retrieve_status_comments(self, status, owner):
         query = {
-            'owner': me,        # current account id
-            'source': status,   # comment id
+            'owner': owner,     # status owner id
+            'source': status,   # status id
             't': 3,             # type: status
         }
         query = dict(query.items() + self.token.items())
         res = self.post('http://status.renren.com/feedcommentretrieve.do',
                         query)
-        print json.loads(res)
+
+        res = json.loads(res)
+        success = res['code']
+
+        status_owner = res['ownerid']
+        print 'Status owner: %s' % status_owner
+        for comment in res['replyList']:
+            comment_id = comment['id']
+            nickname = comment['ubname']
+            content = comment['replyContent']
+            owner = comment['ownerId']
+            print comment_id, nickname, content
 
 
 def format_notification(ntf):
     unread = '*' if n.unread else ' '
-    desc = n.description if n.type == 'status' else ' '
+    desc = '(%s %s)' % (n.status_id, n.owner_id) if n.type == 'status' else ' '
     return u'{:11} {:1} {:6} {:10} {}'.format(
         n.id, unread, n.type, n.nickname, desc
     )
@@ -200,10 +245,11 @@ if __name__ == '__main__':
     for n in ntfs:
         print format_notification(n)
 
-    nid = raw_input('Remove which: ')
+    nid = raw_input('List status comments (S,O):')
     if nid:
-        client.remove_notification(nid)
+        s, o = nid.split()
+        client.retrieve_status_comments(s, o)
 
-    nid = raw_input('Process which: ')
+    nid = raw_input('List whose status? ')
     if nid:
-        client.process_notification(nid)
+        client.retrieve_status(nid)
