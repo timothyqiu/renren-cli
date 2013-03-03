@@ -1,7 +1,5 @@
 #!/usr/bin/env python2
-# -*- coding: utf-8 -*-
-#
-# Reference: http://s.xnimg.cn/a52197/n/apps/login/login-v6.js
+# vim:fileencoding=utf-8
 
 from datetime import datetime
 import cookielib
@@ -12,73 +10,15 @@ import json
 import urllib
 import urllib2
 
-
-class LoginEncryptor:
-
-    URL_GET_ENCRYPT_KEY = 'http://login.renren.com/ajax/getEncryptKey'
-
-    CACHE_FILENAME = '.renren.login.encryptor.cache'
-
-    def __init__(self):
-        if os.path.exists(self.CACHE_FILENAME):
-            self.loadKeys()
-        else:
-            self.retrieveKeys()
-
-    def saveKeys(self, keys):
-        with open(self.CACHE_FILENAME, 'wb') as f:
-            json.dump(keys, f)
-
-    def loadKeys(self):
-        if os.path.exists(self.CACHE_FILENAME):
-            with open(self.CACHE_FILENAME, 'rb') as f:
-                keys = json.load(f)
-            self.update(keys)
-        else:
-            logging.warn('%s does not exist.' % self.CACHE_FILENAME)
-
-    def retrieveKeys(self):
-        response = urllib2.urlopen(self.URL_GET_ENCRYPT_KEY)
-        res = json.loads(response.read())
-        self.update(res)
-        self.saveKeys(res)
-
-    def update(self, res):
-        self.rkey = res['rkey']
-        self.e = int(res['e'], 16)
-        self.n = int(res['n'], 16)
-        self.chunkSize = self.getChunkSize(res['n'])
-
-    def getChunkSize(self, n):
-        for s in range(len(n) - 4, 0, -4):
-            if int(n[s:s+4], 16) != 0:
-                return s / 2
-        return 0
-
-    def encryptedString(self, value):
-        # value to binary array and pad zero according to chunk size
-        a = map(ord, value)
-        a.extend([0] * (self.chunkSize - (len(a) % self.chunkSize)))
-
-        # divide to fixed size chunks
-        chunks = zip(* [iter(a)] * self.chunkSize)
-
-        # hash chunks
-        h = []
-        for chunk in chunks:
-            # make c integer form of a
-            c = sum(chunk[i] << (i*8) for i in range(self.chunkSize))
-
-            h.append('%x' % pow(c, self.e, self.n))
-        return ' '.join(h)
+from renren_encryptor import LoginEncryptor
 
 
 class RenrenNotification:
 
     def __init__(self, data):
-        self.parseJSON(data)
+        self.parse_json(data)
 
-    def parseJSON(self, ntf):
+    def parse_json(self, ntf):
         timestamp = float(ntf['time'])
         content = ntf['content']
 
@@ -186,8 +126,8 @@ class RenrenClient:
     def login(self):
         data = {
             'email': self.email,
-            'password': self.encryptor.encryptedString(self.password),
-            'rkey': self.encryptor.rkey,
+            'password': self.encryptor.encrypt(self.password),
+            'rkey': self.encryptor.key['rkey'],
             'icode': self.getICode(),
             'origURL': 'http://www.renren.com/home',
             'key_id': '1',
