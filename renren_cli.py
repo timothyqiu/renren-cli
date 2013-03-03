@@ -39,6 +39,59 @@ class RenrenNotification:
             self.status_id = m.group(2)
 
 
+def strip_html_tag(text):
+    return re.sub(ur'<.*?>', '', text)
+
+
+class RenrenStatus:
+
+    def __init__(self, raw):
+        self.parse(raw)
+
+    def __str__(self):
+        return u'{:s}\n\t{:s}\n\t{:s} Reply:{:d}\n'.format(
+            self.owner['name'],
+            strip_html_tag(self.content),
+            self.time.isoformat(' '),
+            self.comment_count
+        )
+
+    def parse(self, raw):
+        self.content = raw['content']
+        self.time = datetime.strptime(raw['dtime'], '%Y-%m-%d %H:%M:%S')
+        self.owner = {'id': raw['userId'], 'name': raw['name']}
+        self.id = raw['id']
+        self.comment_count = int(raw['comment_count'])
+
+        # Forward
+        if 'rootDoingId' in raw:
+            self.root = {
+                'status_id': raw['rootDoingId'],
+                'owner': {
+                    'id': raw['rootDoingUserId'],
+                    'name': raw['rootDoingUserName'],
+                },
+                'content': raw['rootContent'],
+            }
+
+
+class RenrenStatusSheet:
+
+    def __init__(self, data):
+        self.parse(data)
+
+    def __str__(self):
+        return u'Status sheet at page {:d}: {:d} status out of {:d}'.format(
+            self.page, self.count, self.total
+        )
+
+    def parse(self, res):
+        self.total = int(res['count'])
+        self.count = len(res['doingArray'])
+        self.page = int(res['curpage'])  # 0, 1, 2, ...
+        self.status = [RenrenStatus(entry) for entry in res['doingArray']]
+
+
 class RenrenClient:
 
     URL_CAPTCHA = \
@@ -165,36 +218,19 @@ class RenrenClient:
         self.post('http://notify.renren.com/rmessage/process?nl=' + nid,
                   self.token)
 
-    def retrieve_status(self, owner, page=0):
-        res = self.get('http://status.renren.com/GetSomeomeDoingList.do',
-                       {'userId': owner, 'curpage': page})
+    def retrieve_status(self, owner=None, page=0):
+        if not owner:
+            url = 'http://status.renren.com/GetFriendDoing.do'
+        else:
+            url = 'http://status.renren.com/GetSomeomeDoingList.do'
+        res = self.get(url, {'userId': owner, 'curpage': page})
 
-        res = json.loads(res)
-
-        # parse
-        status = {
-            'owner': {'id': res['guest'], 'name': res['name']},
-            'total': int(res['count']),
-            'count': len(res['doingArray']),
-            'status': [
-                {
-                    'content': doing['content'],
-                    'comment_count': int(doing['comment_count']),
-                    'time': doing['dtime']
-                }
-                for doing in res['doingArray']
-            ]
-        }
+        sheet = RenrenStatusSheet(json.loads(res))
 
         # print
-        print u'Status of {} (count:{:d} total:{:d})'.format(
-            status['owner']['name'], status['count'], status['total']
-        )
-        for s in status['status']:
-            print u'{} ({:2d}) {}'.format(
-                s['time'], s['comment_count'],
-                re.sub(r'<.*?>', '', s['content'])
-            )
+        print sheet
+        for s in sheet.status:
+            print '%s'% s
 
     def retrieve_status_comments(self, status, owner):
         query = {
@@ -245,11 +281,8 @@ if __name__ == '__main__':
     for n in ntfs:
         print format_notification(n)
 
-    nid = raw_input('List status comments (S,O):')
-    if nid:
-        s, o = nid.split()
-        client.retrieve_status_comments(s, o)
-
     nid = raw_input('List whose status? ')
     if nid:
         client.retrieve_status(nid)
+
+    client.retrieve_status()
