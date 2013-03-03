@@ -226,6 +226,17 @@ class RenrenClient:
                         self.token)
         print res
 
+    def retrieveStatusComments(self, status, me):
+        data = {
+            'owner': me,        # current account id
+            'source': status,   # comment id
+            't': 3,             # type: status
+        }
+        data = dict(data.items() + self.token.items())
+        res = self.post('http://status.renren.com/feedcommentretrieve.do',
+                        data)
+        print json.loads(res)
+
 
 def formatNotification(ntf):
     unread = '*' if n.unread else ' '
