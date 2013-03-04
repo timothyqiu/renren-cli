@@ -7,6 +7,7 @@ import os
 import re
 import logging
 import json
+import sys
 import urllib
 import urllib2
 
@@ -54,7 +55,7 @@ class RenrenStatus:
             strip_html_tag(self.content),
             self.time.isoformat(' '),
             self.comment_count
-        )
+        ).encode(sys.stdout.encoding)
 
     def parse(self, raw):
         self.content = raw['content']
@@ -81,9 +82,13 @@ class RenrenStatusSheet:
         self.parse(data)
 
     def __str__(self):
-        return u'Status sheet at page {:d}: {:d} status out of {:d}'.format(
-            self.page, self.count, self.total
-        )
+        desc = [
+            u'Status sheet at page {:d}: {:d} status out of {:d}'.format(
+                self.page, self.count, self.total
+            ).encode(sys.stdout.encoding)
+        ]
+        desc.extend([str(s) for s in self.status])
+        return '\n'.join(desc)
 
     def parse(self, res):
         self.total = int(res['count'])
@@ -219,7 +224,6 @@ class Client:
         else:
             url = 'http://status.renren.com/GetSomeomeDoingList.do'
         res = self.get(url, {'userId': owner, 'curpage': page})
-
         return RenrenStatusSheet(json.loads(res))
 
     def retrieve_status_comments(self, status, owner):
