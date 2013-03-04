@@ -143,8 +143,8 @@ class RenrenClient:
         if not url:
             url = self.DEFAULT_TOKEN_URL
         html = self.get(url)
-        check_match = re.search(r'get_check:\'(.*?)\'', html)
-        check_x_match = re.search(r'get_check_x:\'(.*?)\'', html)
+        check_match = re.search(r"get_check:'([^']+)'", html)
+        check_x_match = re.search(r"get_check_x:'([^']+)'", html)
         if check_match and check_x_match:
             self.token['requestToken'] = check_match.group(1)
             self.token['_rtk'] = check_x_match.group(1)
