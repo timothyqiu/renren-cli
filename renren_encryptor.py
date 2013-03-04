@@ -88,7 +88,10 @@ class LoginEncryptor:
         return ' '.join(cipher)
 
 
-if __name__ == '__main__':
+def test():
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(levelname)-8s %(message)s')
+
     pair = (
         'example.string',
         '2db4efad86a2db989c8b41adef828afb107e4e9866f23d461d1970e08269c669'
@@ -96,4 +99,8 @@ if __name__ == '__main__':
     encryptor = LoginEncryptor()
     assert encryptor.encrypt(pair[0]) == pair[1], 'Wrong algorithm'
 
-    print "Don't Panic! Everything is OK."
+    print "Don't panic! Everything is fine."
+
+
+if __name__ == '__main__':
+    test()
