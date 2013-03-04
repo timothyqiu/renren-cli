@@ -19,7 +19,7 @@ def list_status(args):
 
 
 def make_subparser(subparsers):
-    parser = subparsers.add_parser('status')
+    parser = subparsers.add_parser('status', help='View and post status')
     parser.set_defaults(func=list_status)
 
     parser.add_argument('--page', default=0, type=int)

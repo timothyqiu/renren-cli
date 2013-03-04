@@ -26,7 +26,7 @@ def logout(args):
 
 
 def make_subparser(subparsers):
-    parser = subparsers.add_parser('logout')
+    parser = subparsers.add_parser('logout', help='Logout')
     parser.set_defaults(func=logout)
 
 

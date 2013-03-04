@@ -35,7 +35,7 @@ def login(args):
 
 
 def make_subparser(subparsers):
-    parser = subparsers.add_parser('login')
+    parser = subparsers.add_parser('login', help='Login')
     parser.set_defaults(func=login)
 
     parser.add_argument('email', nargs='?')

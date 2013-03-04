@@ -49,6 +49,7 @@ class Config:
     def clear(self):
         """The whole config file will be saved."""
         self._config = {}
+        logging.info('Config cleared')
         self.save()
 
     def load(self, filename):
