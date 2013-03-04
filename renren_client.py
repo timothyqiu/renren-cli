@@ -102,7 +102,7 @@ class Client:
         'http://notify.renren.com/rmessage/get?getbybigtype=1&bigtype=1&view=16'
 
     DEFAULT_COOKIES_FILENAME = '.renren.cookies'
-    DEFAULT_TOKEN_URL = 'http://www.renren.com/siteinfo/about'
+    DEFAULT_TOKEN_URL = 'http://i.renren.com/store/view/home'
 
     def __init__(self):
         self.encryptor = LoginEncryptor()
