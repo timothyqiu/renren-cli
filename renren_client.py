@@ -92,7 +92,7 @@ class RenrenStatusSheet:
         self.status = [RenrenStatus(entry) for entry in res['doingArray']]
 
 
-class RenrenClient:
+class Client:
 
     URL_CAPTCHA = \
         'http://icode.renren.com/getcode.do?t=web_login&rnd=Math.random()'
@@ -104,9 +104,7 @@ class RenrenClient:
     DEFAULT_COOKIES_FILENAME = '.renren.cookies'
     DEFAULT_TOKEN_URL = 'http://www.renren.com/siteinfo/about'
 
-    def __init__(self, email, password):
-        self.email = email
-        self.password = password
+    def __init__(self):
         self.encryptor = LoginEncryptor()
 
         self.cookiejar = cookielib.LWPCookieJar()
@@ -120,9 +118,6 @@ class RenrenClient:
         if os.path.exists(self.DEFAULT_COOKIES_FILENAME):
             self.load_cookies()
             self.retrieve_token()
-        else:
-            if self.login():
-                self.save_cookies()
 
     def save_cookies(self, filename=None):
         if not filename:
@@ -173,8 +168,8 @@ class RenrenClient:
         response = self.opener.open(request)
         return response.read()
 
-    def get_icode(self):
-        show = self.post(self.URL_SHOW_CAPTCHA, {'email': self.email})
+    def get_icode(self, email):
+        show = self.post(self.URL_SHOW_CAPTCHA, {'email': email})
         if show == '0':
             return ''
         return self.get_captcha()
@@ -185,22 +180,22 @@ class RenrenClient:
             image.write(captcha)
         return raw_input('Captcha: ')
 
-    def login(self):
+    def login(self, email, password):
         query = {
-            'email': self.email,
-            'password': self.encryptor.encrypt(self.password),
+            'email': email,
+            'password': self.encryptor.encrypt(password),
             'rkey': self.encryptor.key['rkey'],
-            'icode': self.get_icode(),
+            'icode': self.get_icode(email),
             'captcha_type': 'web_login',
         }
         res = json.loads(self.post(self.URL_LOGIN, query))
         if res['code']:
             logging.info('Login success.')
             self.retrieve_token(res['homeUrl'])
-            return True
+            return True, ''
         else:
             logging.error('Login failed: %s', res['failDescription'])
-            return False
+            return False, res['failDescription']
 
     def get_notifications(self, start=0, limit=20):
         query = {
@@ -218,19 +213,14 @@ class RenrenClient:
         self.post('http://notify.renren.com/rmessage/process?nl=' + nid,
                   self.token)
 
-    def retrieve_status(self, owner=None, page=0):
+    def get_status(self, owner=None, page=0):
         if not owner:
             url = 'http://status.renren.com/GetFriendDoing.do'
         else:
             url = 'http://status.renren.com/GetSomeomeDoingList.do'
         res = self.get(url, {'userId': owner, 'curpage': page})
 
-        sheet = RenrenStatusSheet(json.loads(res))
-
-        # print
-        print sheet
-        for s in sheet.status:
-            print '%s'% s
+        return RenrenStatusSheet(json.loads(res))
 
     def retrieve_status_comments(self, status, owner):
         query = {
@@ -264,25 +254,5 @@ def format_notification(ntf):
 
 
 if __name__ == '__main__':
-    os.chdir(os.path.dirname(__file__) or '.')
-
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s %(levelname)-8s %(message)s')
-
-    with open('config.json', 'rb') as f:
-        config = json.load(f)
-
-    email = config['email']
-    password = config['password']
-
-    client = RenrenClient(email, password)
-
-    ntfs = client.get_notifications()
-    for n in ntfs:
-        print format_notification(n)
-
-    nid = raw_input('List whose status? ')
-    if nid:
-        client.retrieve_status(nid)
-
-    client.retrieve_status()
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(levelname)-8s %(message)s')

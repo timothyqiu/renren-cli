@@ -1,4 +1,5 @@
 .renren.*
+*.log
 
 *.py[cod]
 

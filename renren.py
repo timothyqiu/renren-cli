@@ -39,7 +39,7 @@ def get_command_modules():
 def parse_arguments():
     # fill in commands
     modules = get_command_modules()
-    assert modules
+    assert modules, 'Command not found'
 
     # build parser
     parser = argparse.ArgumentParser()
@@ -51,5 +51,7 @@ def parse_arguments():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(filename='renren.log', level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)-8s %(message)s')
     args = parse_arguments()
     args.func(args)
