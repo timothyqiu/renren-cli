@@ -23,12 +23,12 @@ def format_notification(n):
 
 def list_notifications(args):
     client = Client()
-    success, desc = client.get_notifications(
+    ntfs, desc = client.get_notifications(
         page=args.page, page_size=args.page_size
     )
 
-    if success:
-        print u'\n'.join(format_notification(n) for n in desc)
+    if ntfs:
+        print u'\n'.join(format_notification(n) for n in ntfs)
     else:
         print desc
 

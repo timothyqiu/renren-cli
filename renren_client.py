@@ -193,21 +193,21 @@ class Client:
         if res['code']:
             logging.info('Login success.')
             self.retrieve_token(res['homeUrl'])
-            return True, ''
+            return True, None
         else:
             logging.error('Login failed: %s', res['failDescription'])
             return False, res['failDescription']
 
     def get_notifications(self, page=1, page_size=20):
         if not self.is_logged_in():
-            return False, 'You are not logged in'
+            return None, 'You are not logged in'
 
         query = {
             'begin': page_size * (page - 1),
             'limit': page_size,
         }
         res = json.loads(self.get(self.URL_NOTIFICATION, query))
-        return True, [RenrenNotification(ntf) for ntf in res]
+        return [RenrenNotification(ntf) for ntf in res], None
 
     def remove_notification(self, nid):
         self.post('http://notify.renren.com/rmessage/remove?nl=' + nid,
@@ -219,7 +219,7 @@ class Client:
 
     def get_status(self, owner=None, page=1, page_size=5):
         if not self.is_logged_in():
-            return False, 'You are not logged in'
+            return None, 'You are not logged in'
 
         # Calculate the actual pages for request
         # 20 status are returned each time
@@ -263,7 +263,7 @@ class Client:
         length = page_size if page_size <= response_count else response_count
         res_sheet.status = res_sheet.status[offset:offset+length]
 
-        return True, res_sheet
+        return res_sheet, None
 
     def retrieve_status_comments(self, status, owner):
         query = {

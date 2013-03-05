@@ -36,10 +36,10 @@ def format_status(s):
 
 def list_status(args):
     client = Client()
-    success, desc = client.get_status(page=args.page, page_size=args.page_size)
+    sheet, desc = client.get_status(page=args.page, page_size=args.page_size)
 
-    if success:
-        print u'\n\n'.join(format_status(s) for s in desc.status)
+    if sheet:
+        print u'\n\n'.join(format_status(s) for s in sheet.status)
     else:
         print desc
 
