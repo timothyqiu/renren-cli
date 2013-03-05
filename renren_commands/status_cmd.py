@@ -8,7 +8,6 @@ __all__ = ['make_subparser']
 
 
 import argparse
-import getpass
 
 from renren_client import Client
 
@@ -23,7 +22,7 @@ def make_subparser(subparsers):
     parser = subparsers.add_parser('status', help='View and post status')
     parser.set_defaults(func=list_status)
 
-    parser.add_argument('--page', default=0, type=int)
+    parser.add_argument('--page', default=1, type=int)
 
 
 if __name__ == '__main__':
