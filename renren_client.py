@@ -12,6 +12,7 @@ import urllib
 import urllib2
 
 from renren_encryptor import LoginEncryptor
+from renren_utility import pretty_date, pad_str
 
 
 class RenrenNotification:
@@ -21,13 +22,13 @@ class RenrenNotification:
 
     def __unicode__(self):
         marker = 'U' if self.unread else ' '
-        return u'{} {} {:6} {:10} {}'.format(
-            marker, self.time.strftime('%Y/%m/%d %H:%M'),
-            self.type, self.nickname, self.description
+        return u'{} {} {:8} {:>15} {}'.format(
+            marker, pad_str(self.nickname, 12), self.type,
+            pretty_date(self.time), self.description
         )
 
     def parse(self, ntf):
-        timestamp = float(ntf['time'])
+        timestamp = int(ntf['time'])
         content = ntf['content']
         links = re.findall(r'<a.*?href="https?://(.*?)\..*?".*?>(.*?)</a>', content)
 
@@ -60,11 +61,11 @@ class RenrenStatus:
         self.parse(raw)
 
     def __unicode__(self):
-        return u'{:s}\n\t{:s}\n\t{:s} Reply:{:d}\n'.format(
-            self.owner['name'],
-            to_plain_text(self.content),
-            self.time.isoformat(' '),
-            self.comment_count
+        return u'{} Comments:{:<3d} {}\n> {:s}\n'.format(
+            pad_str(self.owner['name'], 12),
+            self.comment_count,
+            pretty_date(self.time),
+            to_plain_text(self.content)
         )
 
     def parse(self, raw):
