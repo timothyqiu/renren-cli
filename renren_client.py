@@ -19,6 +19,13 @@ class RenrenNotification:
     def __init__(self, data):
         self.parse(data)
 
+    def __unicode__(self):
+        marker = 'U' if self.unread else ' '
+        return u'{} {} {:6} {:10} {}'.format(
+            marker, self.time.strftime('%Y/%m/%d %H:%M'),
+            self.type, self.nickname, self.description
+        )
+
     def parse(self, ntf):
         timestamp = float(ntf['time'])
         content = ntf['content']
@@ -206,13 +213,16 @@ class Client:
             logging.error('Login failed: %s', res['failDescription'])
             return False, res['failDescription']
 
-    def get_notifications(self, start=0, limit=20):
+    def get_notifications(self, page=1, page_size=20):
+        if not self.is_logged_in():
+            return False, 'You are not logged in'
+
         query = {
-            'begin': start,
-            'limit': limit,
+            'begin': page_size * (page - 1),
+            'limit': page_size,
         }
         res = json.loads(self.get(self.URL_NOTIFICATION, query))
-        return [RenrenNotification(ntf) for ntf in res]
+        return True, [RenrenNotification(ntf) for ntf in res]
 
     def remove_notification(self, nid):
         self.post('http://notify.renren.com/rmessage/remove?nl=' + nid,
@@ -254,14 +264,6 @@ class Client:
             content = comment['replyContent']
             owner = comment['ownerId']
             print comment_id, nickname, content
-
-
-def format_notification(ntf):
-    unread = '*' if n.unread else ' '
-    desc = '(%s %s)' % (n.status_id, n.owner_id) if n.type == 'status' else ' '
-    return u'{:11} {:1} {:6} {:10} {}'.format(
-        n.id, unread, n.type, n.nickname, desc
-    )
 
 
 if __name__ == '__main__':
