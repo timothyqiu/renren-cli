@@ -25,7 +25,7 @@ class Config:
         else:
             logging.debug('File %s does not exist', filename)
 
-    def __str__(self):
+    def __unicode__(self):
         return json.dumps(self._config, indent=4, sort_keys=True)
 
     def __delitem__(self, key):
@@ -72,7 +72,7 @@ def test():
 
     # init & str
     config = Config('test.config')
-    assert str(config) == '{}', 'Wrong empty presentation'
+    assert unicode(config) == u'{}', 'Wrong empty presentation'
 
     # index nonexistent key
     assert not config['void'], 'Nonexistent key should return None'
@@ -83,7 +83,7 @@ def test():
 
     # delete
     del config['key']
-    assert str(config) == '{}', 'Config should be empty after deletion'
+    assert unicode(config) == u'{}', 'Config should be empty after deletion'
 
     # save & load
     config['saved'] = 'yes'
@@ -93,7 +93,7 @@ def test():
 
     # clear
     config.clear()
-    assert str(config) == '{}', 'Something wrong with clear'
+    assert unicode(config) == u'{}', 'Something wrong with clear'
 
     # clear temporary files
     os.remove(os.path.abspath('test.copy.config'))

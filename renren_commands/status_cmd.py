@@ -16,7 +16,7 @@ from renren_client import Client
 def list_status(args):
     client = Client()
     success, desc = client.get_status(page=args.page)
-    print desc
+    print unicode(desc)
 
 
 def make_subparser(subparsers):

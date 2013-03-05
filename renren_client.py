@@ -49,13 +49,13 @@ class RenrenStatus:
     def __init__(self, raw):
         self.parse(raw)
 
-    def __str__(self):
+    def __unicode__(self):
         return u'{:s}\n\t{:s}\n\t{:s} Reply:{:d}\n'.format(
             self.owner['name'],
             strip_html_tag(self.content),
             self.time.isoformat(' '),
             self.comment_count
-        ).encode(sys.stdout.encoding)
+        )
 
     def parse(self, raw):
         self.content = raw['content']
@@ -81,14 +81,14 @@ class RenrenStatusSheet:
     def __init__(self, data):
         self.parse(data)
 
-    def __str__(self):
+    def __unicode__(self):
         desc = [
             u'Status sheet at page {:d}: {:d} status out of {:d}'.format(
                 self.page, self.count, self.total
-            ).encode(sys.stdout.encoding)
+            )
         ]
-        desc.extend([str(s) for s in self.status])
-        return '\n'.join(desc)
+        desc.extend([unicode(s) for s in self.status])
+        return u'\n'.join(desc)
 
     def parse(self, res):
         self.total = int(res['count'])

@@ -13,7 +13,7 @@ from renren_config import Config
 
 
 def list_config(args):
-    print Config()
+    print unicode(Config())
 
 
 def clear_config(args):
