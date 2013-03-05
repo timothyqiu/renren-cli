@@ -102,13 +102,17 @@ class RenrenStatus:
 
 class RenrenStatusSheet:
 
-    def __init__(self, data):
-        self.parse(data)
+    def __init__(self, data=None):
+        # `data` can be None because empty sheet is meaningful
+        self.total = 0
+        self.status = []
+        if data:
+            self.parse(data)
 
     def __unicode__(self):
         desc = [
-            u'Status sheet at page {:d}: {:d} status out of {:d}'.format(
-                self.page, self.count, self.total
+            u'Status Sheet (count:{:d}  total:{:d})'.format(
+                len(self.status), self.total
             )
         ]
         desc.extend([unicode(s) for s in self.status])
@@ -116,8 +120,6 @@ class RenrenStatusSheet:
 
     def parse(self, res):
         self.total = int(res['count'])
-        self.count = len(res['doingArray'])
-        self.page = int(res['curpage'])  # 0, 1, 2, ...
         self.status = [RenrenStatus(entry) for entry in res['doingArray']]
 
 
@@ -249,16 +251,53 @@ class Client:
         self.post('http://notify.renren.com/rmessage/process?nl=' + nid,
                   self.token)
 
-    def get_status(self, owner=None, page=1):
+    def get_status(self, owner=None, page=1, page_size=5):
         if not self.is_logged_in():
             return False, 'You are not logged in'
 
+        # Calculate the actual pages for request
+        # 20 status are returned each time
+        # FIXME: find a way to alter page size in request?
+        begin = page_size * (page - 1)
+        end = begin + page_size
+        req_page_size = 20
+        page_begin = begin / req_page_size
+        page_end = end / req_page_size
+        req_pages = range(page_begin, page_end + 1)
+
+        # Basic request setup
         if not owner:
-            url = 'http://status.renren.com/GetFriendDoing.do'
+            send_request = lambda p: self.get(
+                'http://status.renren.com/GetFriendDoing.do',
+                {'curpage': p}
+            )
         else:
-            url = 'http://status.renren.com/GetSomeomeDoingList.do'
-        res = self.get(url, {'userId': owner, 'curpage': page-1})
-        return True, RenrenStatusSheet(json.loads(res))
+            send_request = lambda p: self.get(
+                'http://status.renren.com/GetSomeomeDoingList.do',
+                {'curpage': p, 'userId': owner}
+            )
+
+        res = map(send_request, req_pages)    # Response
+        raw = map(json.loads, res)            # Dict
+        sheets = map(RenrenStatusSheet, raw)  # Dict to objects
+
+        # Combine all returned pages
+        res_sheet = RenrenStatusSheet()
+        res_sheet.total = sheets[0].total
+        res_sheet.status = [
+            s
+            for sheet in sheets
+            for s in sheet.status
+        ]
+
+        # Cut to what we want
+        response_count = len(res_sheet.status)
+
+        offset = begin % req_page_size
+        length = page_size if page_size <= response_count else response_count
+        res_sheet.status = res_sheet.status[offset:offset+length]
+
+        return True, res_sheet
 
     def retrieve_status_comments(self, status, owner):
         query = {
