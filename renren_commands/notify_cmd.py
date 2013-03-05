@@ -26,7 +26,7 @@ def make_subparser(subparsers):
     parser = subparsers.add_parser('notify', help='View notifications')
     parser.set_defaults(func=list_notifications)
 
-    parser.add_argument('--page', default=1, type=int)
+    parser.add_argument('-p', '--page', default=1, type=int)
     parser.add_argument('--page-size', default=15, type=int)
 
 

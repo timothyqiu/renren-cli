@@ -22,7 +22,7 @@ def make_subparser(subparsers):
     parser = subparsers.add_parser('status', help='View and post status')
     parser.set_defaults(func=list_status)
 
-    parser.add_argument('--page', default=1, type=int)
+    parser.add_argument('-p', '--page', default=1, type=int)
     parser.add_argument('--page-size', default=5, type=int)
 
 
