@@ -20,7 +20,7 @@ def login(args):
     config = Config()
 
     email = args.email or config['email'] or raw_input('Email: ')
-    password = args.email or config['password'] or getpass.getpass()
+    password = args.password or config['password'] or getpass.getpass()
 
     success, desc = client.login(email, password)
 

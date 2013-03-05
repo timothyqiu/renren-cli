@@ -59,4 +59,8 @@ if __name__ == '__main__':
                         format='%(asctime)s %(process)5d %(levelname)-5s %(message)s')
 
     args = parse_arguments()
-    args.func(args)
+
+    try:
+        args.func(args)
+    except IOError as e:
+        print e

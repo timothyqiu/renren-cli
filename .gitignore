@@ -1,5 +1,6 @@
 .renren.*
 *.log
+captcha.jpg
 
 *.py[cod]
 

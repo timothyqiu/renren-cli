@@ -186,6 +186,7 @@ class Client:
         captcha = self.get(self.URL_CAPTCHA)
         with open('captcha.jpg', 'wb') as image:
             image.write(captcha)
+        print 'Captcha image saved to captcha.jpg'
         return raw_input('Captcha: ')
 
     def login(self, email, password):
@@ -221,7 +222,7 @@ class Client:
         self.post('http://notify.renren.com/rmessage/process?nl=' + nid,
                   self.token)
 
-    def get_status(self, owner=None, page=0):
+    def get_status(self, owner=None, page=1):
         if not self.is_logged_in():
             return False, 'You are not logged in'
 
@@ -229,7 +230,7 @@ class Client:
             url = 'http://status.renren.com/GetFriendDoing.do'
         else:
             url = 'http://status.renren.com/GetSomeomeDoingList.do'
-        res = self.get(url, {'userId': owner, 'curpage': page})
+        res = self.get(url, {'userId': owner, 'curpage': page-1})
         return True, RenrenStatusSheet(json.loads(res))
 
     def retrieve_status_comments(self, status, owner):
