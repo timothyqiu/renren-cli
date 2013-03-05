@@ -61,12 +61,24 @@ class RenrenStatus:
         self.parse(raw)
 
     def __unicode__(self):
-        return u'{} Comments:{:<3d} {}\n> {:s}\n'.format(
-            pad_str(self.owner['name'], 12),
-            self.comment_count,
-            pretty_date(self.time),
-            to_plain_text(self.content)
+        content = [
+            u'{}: {}'.format(
+                self.owner['name'],
+                to_plain_text(self.content)
+            )
+        ]
+
+        if self.root:
+            content.append(
+                u'> {}'.format(to_plain_text(self.root['content']))
+            )
+
+        content.append(
+            u'{} Comments:{}'.format(
+                pretty_date(self.time), self.comment_count
+            )
         )
+        return u'\n'.join(content)
 
     def parse(self, raw):
         self.content = raw['content']
@@ -76,6 +88,7 @@ class RenrenStatus:
         self.comment_count = int(raw['comment_count'])
 
         # Forward
+        self.root = {}
         if 'rootDoingId' in raw:
             self.root = {
                 'status_id': raw['rootDoingId'],
@@ -99,7 +112,7 @@ class RenrenStatusSheet:
             )
         ]
         desc.extend([unicode(s) for s in self.status])
-        return u'\n'.join(desc)
+        return u'\n\n'.join(desc)
 
     def parse(self, res):
         self.total = int(res['count'])
