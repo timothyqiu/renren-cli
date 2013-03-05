@@ -152,6 +152,9 @@ class Client:
         else:
             logging.warn('Token not found in %s' % url)
 
+    def is_logged_in(self):
+        return bool(self.token)
+
     def post(self, url, query={}):
         data = urllib.urlencode(query)
 
@@ -219,12 +222,15 @@ class Client:
                   self.token)
 
     def get_status(self, owner=None, page=0):
+        if not self.is_logged_in():
+            return False, 'You are not logged in'
+
         if not owner:
             url = 'http://status.renren.com/GetFriendDoing.do'
         else:
             url = 'http://status.renren.com/GetSomeomeDoingList.do'
         res = self.get(url, {'userId': owner, 'curpage': page})
-        return RenrenStatusSheet(json.loads(res))
+        return True, RenrenStatusSheet(json.loads(res))
 
     def retrieve_status_comments(self, status, owner):
         query = {

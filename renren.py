@@ -51,9 +51,12 @@ def parse_arguments():
 
 
 if __name__ == '__main__':
+    os.chdir(os.path.dirname(sys.argv[0]))
+
     logging.addLevelName(logging.WARNING, 'WARN')
     logging.addLevelName(logging.CRITICAL, 'FATAL')
     logging.basicConfig(filename='renren.log', level=logging.DEBUG,
                         format='%(asctime)s %(process)5d %(levelname)-5s %(message)s')
+
     args = parse_arguments()
     args.func(args)
