@@ -12,6 +12,7 @@ import urllib
 import urllib2
 
 from renren_encryptor import LoginEncryptor
+from renren_utility import pretty_date, pad_str
 
 
 class RenrenNotification:
@@ -19,8 +20,15 @@ class RenrenNotification:
     def __init__(self, data):
         self.parse(data)
 
+    def __unicode__(self):
+        marker = 'U' if self.unread else ' '
+        return u'{} {} {:8} {:>15} {}'.format(
+            marker, pad_str(self.nickname, 12), self.type,
+            pretty_date(self.time), self.description
+        )
+
     def parse(self, ntf):
-        timestamp = float(ntf['time'])
+        timestamp = int(ntf['time'])
         content = ntf['content']
         links = re.findall(r'<a.*?href="https?://(.*?)\..*?".*?>(.*?)</a>', content)
 
@@ -40,7 +48,10 @@ class RenrenNotification:
             self.status_id = m.group(2)
 
 
-def strip_html_tag(text):
+def to_plain_text(text):
+    # Image tags to alt text
+    text = re.sub(ur"<img .*?alt='([^']*)'.*?/>", ur"(\1)", text)
+    # Remove other tags
     return re.sub(ur'<.*?>', '', text)
 
 
@@ -50,12 +61,24 @@ class RenrenStatus:
         self.parse(raw)
 
     def __unicode__(self):
-        return u'{:s}\n\t{:s}\n\t{:s} Reply:{:d}\n'.format(
-            self.owner['name'],
-            strip_html_tag(self.content),
-            self.time.isoformat(' '),
-            self.comment_count
+        content = [
+            u'{}: {}'.format(
+                self.owner['name'],
+                to_plain_text(self.content)
+            )
+        ]
+
+        if self.root:
+            content.append(
+                u'> {}'.format(to_plain_text(self.root['content']))
+            )
+
+        content.append(
+            u'{} Comments:{}'.format(
+                pretty_date(self.time), self.comment_count
+            )
         )
+        return u'\n'.join(content)
 
     def parse(self, raw):
         self.content = raw['content']
@@ -65,6 +88,7 @@ class RenrenStatus:
         self.comment_count = int(raw['comment_count'])
 
         # Forward
+        self.root = {}
         if 'rootDoingId' in raw:
             self.root = {
                 'status_id': raw['rootDoingId'],
@@ -78,22 +102,24 @@ class RenrenStatus:
 
 class RenrenStatusSheet:
 
-    def __init__(self, data):
-        self.parse(data)
+    def __init__(self, data=None):
+        # `data` can be None because empty sheet is meaningful
+        self.total = 0
+        self.status = []
+        if data:
+            self.parse(data)
 
     def __unicode__(self):
         desc = [
-            u'Status sheet at page {:d}: {:d} status out of {:d}'.format(
-                self.page, self.count, self.total
+            u'Status Sheet (count:{:d}  total:{:d})'.format(
+                len(self.status), self.total
             )
         ]
         desc.extend([unicode(s) for s in self.status])
-        return u'\n'.join(desc)
+        return u'\n\n'.join(desc)
 
     def parse(self, res):
         self.total = int(res['count'])
-        self.count = len(res['doingArray'])
-        self.page = int(res['curpage'])  # 0, 1, 2, ...
         self.status = [RenrenStatus(entry) for entry in res['doingArray']]
 
 
@@ -206,13 +232,16 @@ class Client:
             logging.error('Login failed: %s', res['failDescription'])
             return False, res['failDescription']
 
-    def get_notifications(self, start=0, limit=20):
+    def get_notifications(self, page=1, page_size=20):
+        if not self.is_logged_in():
+            return False, 'You are not logged in'
+
         query = {
-            'begin': start,
-            'limit': limit,
+            'begin': page_size * (page - 1),
+            'limit': page_size,
         }
         res = json.loads(self.get(self.URL_NOTIFICATION, query))
-        return [RenrenNotification(ntf) for ntf in res]
+        return True, [RenrenNotification(ntf) for ntf in res]
 
     def remove_notification(self, nid):
         self.post('http://notify.renren.com/rmessage/remove?nl=' + nid,
@@ -222,16 +251,53 @@ class Client:
         self.post('http://notify.renren.com/rmessage/process?nl=' + nid,
                   self.token)
 
-    def get_status(self, owner=None, page=1):
+    def get_status(self, owner=None, page=1, page_size=5):
         if not self.is_logged_in():
             return False, 'You are not logged in'
 
+        # Calculate the actual pages for request
+        # 20 status are returned each time
+        # FIXME: find a way to alter page size in request?
+        begin = page_size * (page - 1)
+        end = begin + page_size
+        req_page_size = 20
+        page_begin = begin / req_page_size
+        page_end = end / req_page_size
+        req_pages = range(page_begin, page_end + 1)
+
+        # Basic request setup
         if not owner:
-            url = 'http://status.renren.com/GetFriendDoing.do'
+            send_request = lambda p: self.get(
+                'http://status.renren.com/GetFriendDoing.do',
+                {'curpage': p}
+            )
         else:
-            url = 'http://status.renren.com/GetSomeomeDoingList.do'
-        res = self.get(url, {'userId': owner, 'curpage': page-1})
-        return True, RenrenStatusSheet(json.loads(res))
+            send_request = lambda p: self.get(
+                'http://status.renren.com/GetSomeomeDoingList.do',
+                {'curpage': p, 'userId': owner}
+            )
+
+        res = map(send_request, req_pages)    # Response
+        raw = map(json.loads, res)            # Dict
+        sheets = map(RenrenStatusSheet, raw)  # Dict to objects
+
+        # Combine all returned pages
+        res_sheet = RenrenStatusSheet()
+        res_sheet.total = sheets[0].total
+        res_sheet.status = [
+            s
+            for sheet in sheets
+            for s in sheet.status
+        ]
+
+        # Cut to what we want
+        response_count = len(res_sheet.status)
+
+        offset = begin % req_page_size
+        length = page_size if page_size <= response_count else response_count
+        res_sheet.status = res_sheet.status[offset:offset+length]
+
+        return True, res_sheet
 
     def retrieve_status_comments(self, status, owner):
         query = {
@@ -254,14 +320,6 @@ class Client:
             content = comment['replyContent']
             owner = comment['ownerId']
             print comment_id, nickname, content
-
-
-def format_notification(ntf):
-    unread = '*' if n.unread else ' '
-    desc = '(%s %s)' % (n.status_id, n.owner_id) if n.type == 'status' else ' '
-    return u'{:11} {:1} {:6} {:10} {}'.format(
-        n.id, unread, n.type, n.nickname, desc
-    )
 
 
 if __name__ == '__main__':
