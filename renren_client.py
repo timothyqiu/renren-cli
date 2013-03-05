@@ -47,7 +47,10 @@ class RenrenNotification:
             self.status_id = m.group(2)
 
 
-def strip_html_tag(text):
+def to_plain_text(text):
+    # Image tags to alt text
+    text = re.sub(ur"<img .*?alt='([^']*)'.*?/>", ur"(\1)", text)
+    # Remove other tags
     return re.sub(ur'<.*?>', '', text)
 
 
@@ -59,7 +62,7 @@ class RenrenStatus:
     def __unicode__(self):
         return u'{:s}\n\t{:s}\n\t{:s} Reply:{:d}\n'.format(
             self.owner['name'],
-            strip_html_tag(self.content),
+            to_plain_text(self.content),
             self.time.isoformat(' '),
             self.comment_count
         )
