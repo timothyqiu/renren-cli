@@ -12,20 +12,12 @@ import urllib
 import urllib2
 
 from renren_encryptor import LoginEncryptor
-from renren_utility import pretty_date, pad_str
 
 
 class RenrenNotification:
 
     def __init__(self, data):
         self.parse(data)
-
-    def __unicode__(self):
-        marker = 'U' if self.unread else ' '
-        return u'{} {} {:8} {:>15} {}'.format(
-            marker, pad_str(self.nickname, 12), self.type,
-            pretty_date(self.time), self.description
-        )
 
     def parse(self, ntf):
         timestamp = int(ntf['time'])
@@ -48,37 +40,11 @@ class RenrenNotification:
             self.status_id = m.group(2)
 
 
-def to_plain_text(text):
-    # Image tags to alt text
-    text = re.sub(ur"<img .*?alt='([^']*)'.*?/>", ur"(\1)", text)
-    # Remove other tags
-    return re.sub(ur'<.*?>', '', text)
-
-
 class RenrenStatus:
 
     def __init__(self, raw):
         self.parse(raw)
 
-    def __unicode__(self):
-        content = [
-            u'{}: {}'.format(
-                self.owner['name'],
-                to_plain_text(self.content)
-            )
-        ]
-
-        if self.root:
-            content.append(
-                u'> {}'.format(to_plain_text(self.root['content']))
-            )
-
-        content.append(
-            u'{} Comments:{}'.format(
-                pretty_date(self.time), self.comment_count
-            )
-        )
-        return u'\n'.join(content)
 
     def parse(self, raw):
         self.content = raw['content']

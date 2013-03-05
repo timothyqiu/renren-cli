@@ -10,12 +10,38 @@ __all__ = ['make_subparser']
 import argparse
 
 from renren_client import Client
+from renren_utility import pretty_date, html_to_plain_text
+
+
+def format_status(s):
+    content = [
+        u'{}: {}'.format(
+            s.owner['name'],
+            html_to_plain_text(s.content)
+        )
+    ]
+
+    if s.root:
+        content.append(
+            u'> {}'.format(html_to_plain_text(s.root['content']))
+        )
+
+    content.append(
+        u'{}\tComments:{}'.format(
+            pretty_date(s.time), s.comment_count
+        )
+    )
+    return u'\n'.join(content)
 
 
 def list_status(args):
     client = Client()
     success, desc = client.get_status(page=args.page, page_size=args.page_size)
-    print unicode(desc)
+
+    if success:
+        print u'\n\n'.join(format_status(s) for s in desc.status)
+    else:
+        print desc
 
 
 def make_subparser(subparsers):

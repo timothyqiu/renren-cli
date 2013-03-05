@@ -4,10 +4,15 @@
 """Utility Module for RenrenCLI
 """
 
-__all__ = ['pretty_date', 'pad_str']
+__all__ = [
+    'pretty_date',
+    'pad_str',
+    'html_to_plain_text'
+]
 
 
 import datetime
+import re
 import unicodedata
 
 
@@ -46,11 +51,24 @@ def pad_str(text, width, padchar=' '):
     return u'{}{}'.format(text, padchar * padcount)
 
 
+def html_to_plain_text(text):
+    # Image tags to alt text
+    text = re.sub(ur"<img .*?alt=(['\"])([^\1]*)\1.*?/\s*>", ur"(\2)", text)
+    # Remove other tags
+    return re.sub(ur'<.*?>', '', text)
+
+
 def test():
     assert pad_str(u'cake', 10, '.') == u'cake......'
     assert pad_str(u'惠山油酥', 10, '.') == u'惠山油酥..'
     assert pad_str(u'おもち', 10, '.') == u'おもち....'
     assert pad_str(u'막걸리', 10, '.') == u'막걸리....'
+
+    assert html_to_plain_text(
+        'Click <a href="#">here</a> for <img src="image.png" alt="image"/>.'
+    ) == u'Click here for (image).'
+
+    print "Don't panic! Everything is fine."
 
 
 if __name__ == '__main__':
