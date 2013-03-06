@@ -7,7 +7,8 @@
 __all__ = [
     'pretty_date',
     'pad_str',
-    'html_to_plain_text'
+    'html_to_plain_text',
+    'get_display_len',
 ]
 
 
@@ -21,7 +22,7 @@ def pretty_date(d):
     # FIXME: Timezone Issue?
     diff = datetime.datetime.now() - d
     if diff.days > 7 or diff.days < 0:
-        return d.strftime('%d %b %y')
+        return d.strftime('%Y-%m-%d')
     elif diff.days == 1:
         return u'1 day ago'
     elif diff.days > 1:
@@ -40,13 +41,18 @@ def pretty_date(d):
         return u'{} hours ago'.format(diff.seconds / 3600)
 
 
-def pad_str(text, width, padchar=' '):
-    """Properly pads a string, considering east asian characters."""
-    # Not considering ambiguous characters ('A')
-    colwidth = sum(
+def get_display_len(text):
+    """Get display length, considering east asian characters."""
+    return sum(
         1 + (unicodedata.east_asian_width(c) in 'WF')
         for c in text
     )
+
+
+def pad_str(text, width, padchar=' '):
+    """Properly pads a string, considering east asian characters."""
+    # Not considering ambiguous characters ('A')
+    colwidth = get_display_len(text)
     padcount = width - (colwidth if width >= colwidth else 0)
     return u'{}{}'.format(text, padchar * padcount)
 
@@ -55,7 +61,8 @@ def html_to_plain_text(text):
     # Image tags to alt text
     text = re.sub(ur"<img .*?alt=(['\"])([^\1]*?)\1.*?/\s*>", ur"(\2)", text)
     # Remove other tags
-    return re.sub(ur'<.*?>', '', text)
+    text = re.sub(ur'<.*?>', '', text)
+    return text
 
 
 def test():

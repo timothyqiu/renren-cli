@@ -10,15 +10,22 @@ __all__ = ['make_subparser']
 import argparse
 
 from renren_client import Client
-from renren_utility import pretty_date, pad_str
+from renren_utility import pretty_date, pad_str, get_display_len
 
 
-def format_notification(n):
-    marker = 'U' if n.unread else ' '
-    return u'{} {} {:8} {:>15} {}'.format(
-        marker, pad_str(n.nickname, 12), n.type,
-        pretty_date(n.time), n.description
-    )
+def format_notifications(ntfs):
+    namecols = max(get_display_len(n.nickname) for n in ntfs)
+
+    text = []
+    for n in ntfs:
+        marker = 'U' if n.unread else ' '
+        text.append(
+            u'{} {} {:8} {:>15} {}'.format(
+                marker, pad_str(n.nickname, namecols), n.type,
+                pretty_date(n.time), n.description
+            )
+        )
+    return u'\n'.join(text)
 
 
 def list_notifications(args):
@@ -28,7 +35,7 @@ def list_notifications(args):
     )
 
     if ntfs:
-        print u'\n'.join(format_notification(n) for n in ntfs)
+        print format_notifications(ntfs)
     else:
         print desc
 

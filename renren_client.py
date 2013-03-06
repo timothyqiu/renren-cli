@@ -27,8 +27,6 @@ class RenrenNotification:
         self.id = ntf['nid']
         self.unread = int(ntf['unread']) > 0
         self.time = datetime.fromtimestamp(timestamp)
-        self.removeCallback = ntf['rmessagecallback']
-        self.processCallback = ntf['processcallback']
         self.nickname = links[0][1]
         self.type = links[1][0]
         self.description = links[1][1]
@@ -45,21 +43,20 @@ class RenrenStatus:
     def __init__(self, raw):
         self.parse(raw)
 
-
     def parse(self, raw):
         self.content = raw['content']
         self.time = datetime.strptime(raw['dtime'], '%Y-%m-%d %H:%M:%S')
-        self.owner = {'id': raw['userId'], 'name': raw['name']}
-        self.id = raw['id']
+        self.owner = {'id': int(raw['userId']), 'name': raw['name']}
+        self.id = int(raw['id'])
         self.comment_count = int(raw['comment_count'])
 
         # Forward
         self.root = {}
         if 'rootDoingId' in raw:
             self.root = {
-                'status_id': raw['rootDoingId'],
+                'status_id': int(raw['rootDoingId']),
                 'owner': {
-                    'id': raw['rootDoingUserId'],
+                    'id': int(raw['rootDoingUserId']),
                     'name': raw['rootDoingUserName'],
                 },
                 'content': raw['rootContent'],
