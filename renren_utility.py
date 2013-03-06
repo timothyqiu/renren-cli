@@ -53,7 +53,7 @@ def pad_str(text, width, padchar=' '):
 
 def html_to_plain_text(text):
     # Image tags to alt text
-    text = re.sub(ur"<img .*?alt=(['\"])([^\1]*)\1.*?/\s*>", ur"(\2)", text)
+    text = re.sub(ur"<img .*?alt=(['\"])([^\1]*?)\1.*?/\s*>", ur"(\2)", text)
     # Remove other tags
     return re.sub(ur'<.*?>', '', text)
 
@@ -67,6 +67,9 @@ def test():
     assert html_to_plain_text(
         'Click <a href="#">here</a> for <img src="image.png" alt="image"/>.'
     ) == u'Click here for (image).'
+    assert html_to_plain_text(
+        "<img src='image.png' alt='one'/>.<img src='image.png' alt='two'/>"
+    ) == u'(one).(two)'
 
     print "Don't panic! Everything is fine."
 
