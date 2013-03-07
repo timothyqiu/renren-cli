@@ -138,14 +138,16 @@ class Client:
             self.token['requestToken'] = check_match.group(1)
             self.token['_rtk'] = check_x_match.group(1)
             logging.info('Token got from %s' % url)
+            return True
         else:
             logging.warn('Token not found in %s' % url)
+            return False
 
     def is_logged_in(self):
         return bool(self.token)
 
-    def post(self, url, query={}):
-        data = urllib.urlencode(query)
+    def post(self, url, form={}):
+        data = urllib.urlencode(form)
 
         logging.debug('POST %s' % url)
 
@@ -153,11 +155,10 @@ class Client:
         response = self.opener.open(request)
         return response.read()
 
-    def get(self, url, query={}):
-        data = urllib.urlencode(query)
-        if data:
+    def get(self, url, query=None):
+        if query:
             seperator = '&' if '?' in url else '?'
-            url += seperator + data
+            url += seperator + urllib.urlencode(query)
 
         logging.debug('GET %s' % url)
 
@@ -189,11 +190,14 @@ class Client:
         res = json.loads(self.post(self.URL_LOGIN, query))
         if res['code']:
             logging.info('Login success.')
-            self.retrieve_token(res['homeUrl'])
+            if not self.retrieve_token(res['homeUrl']):
+                return False, 'Token not found.'
             return True, None
         else:
             logging.error('Login failed: %s', res['failDescription'])
             return False, res['failDescription']
+
+    # Notifications
 
     def get_notifications(self, page=1, page_size=20):
         if not self.is_logged_in():
@@ -213,6 +217,8 @@ class Client:
     def process_notification(self, nid):
         self.post('http://notify.renren.com/rmessage/process?nl=' + nid,
                   self.token)
+
+    # Status
 
     def get_status(self, owner=None, page=1, page_size=5):
         if not self.is_logged_in():
@@ -284,7 +290,28 @@ class Client:
             owner = comment['ownerId']
             print comment_id, nickname, content
 
+    def post_status_comment(self, owner_id, status_id, content, reply_to=None):
+        if not self.is_logged_in():
+            return None, 'You are not logged in'
+
+        form = {
+            'owner': owner_id,      # owner of status
+            'source': status_id,    # status
+            't': 3,                 # type: status
+            'c': content,
+            'requestToken': self.token['requestToken'],
+            '_rtk': self.token['_rtk']
+        }
+        if reply_to:
+            form['secondaryReplyId'] = reply_to
+
+        res = self.post('http://status.renren.com/feedcommentreply.do',
+                        form)
+        res = json.loads(res)  # returns the newly posted comment
+        print res
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
                         format='%(levelname)-8s %(message)s')
+    c = Client()
