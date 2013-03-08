@@ -54,7 +54,7 @@ class RenrenStatus:
         self.root = {}
         if 'rootDoingId' in raw:
             self.root = {
-                'status_id': int(raw['rootDoingId']),
+                'id': int(raw['rootDoingId']),
                 'owner': {
                     'id': int(raw['rootDoingUserId']),
                     'name': raw['rootDoingUserName'],
@@ -279,16 +279,19 @@ class Client:
                         query)
 
         res = json.loads(res)
-        success = res['code']
+        fail = res['code']
 
-        status_owner = res['ownerid']
-        print 'Status owner: %s' % status_owner
-        for comment in res['replyList']:
-            comment_id = comment['id']
-            nickname = comment['ubname']
-            content = comment['replyContent']
-            owner = comment['ownerId']
-            print comment_id, nickname, content
+        if fail:
+            return None, res
+
+        return [
+            {
+                'id': comment['id'],
+                'owner': {'name': comment['ubname'], 'id': comment['ownerId']},
+                'content': comment['replyContent'],
+            }
+            for comment in res['replyList']
+        ], ''
 
     def post_status_comment(self, owner_id, status_id, content, reply_to=None):
         if not self.is_logged_in():
