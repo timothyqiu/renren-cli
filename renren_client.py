@@ -311,7 +311,10 @@ class Client:
         res = self.post('http://status.renren.com/feedcommentreply.do',
                         form)
         res = json.loads(res)  # returns the newly posted comment
-        print res
+        if res['code'] == 0:
+            return True, ''
+        else:
+            return False, res['failDescription']
 
 
 if __name__ == '__main__':

@@ -49,7 +49,14 @@ def list_status(args):
         print u'\n\n'.join(format_status(s) for s in sheet.status)
         return
 
+    # For a specific status
     status = sheet.status[args.status - 1]
+
+    if args.comment:
+        res, desc = client.post_status_comment(
+            status.owner['id'], status.id, args.comment
+        )
+
     print format_status(status)
 
     comments, desc = client.retrieve_status_comments(
@@ -98,6 +105,8 @@ def make_subparser(subparsers):
 
     parser.add_argument('-p', '--page', default=1, type=int)
     parser.add_argument('--page-size', default=5, type=int)
+
+    parser.add_argument('-c', '--comment')
 
     # test
     parser.add_argument('-i', help='interactive mode', dest='func',
