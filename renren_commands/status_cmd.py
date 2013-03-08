@@ -49,6 +49,10 @@ def list_status(args):
         print u'\n\n'.join(format_status(s) for s in sheet.status)
         return
 
+    if not args.status - 1 in range(0, len(sheet.status)):
+        print 'Status not found.'
+        return
+
     # For a specific status
     status = sheet.status[args.status - 1]
 
